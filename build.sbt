@@ -14,4 +14,8 @@ libraryDependencies <<= (scalaVersion, libraryDependencies) { (ver, deps) =>
     deps :+ compilerPlugin("org.scala-lang.plugins" % "continuations" % ver)
 }
 
+libraryDependencies <+= scalaVersion( "org.scala-lang" % "scala-swing" % _ )
+
 scalacOptions += "-P:continuations:enable"
+
+scalacOptions += "-deprecation"
