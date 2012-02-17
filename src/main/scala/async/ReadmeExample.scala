@@ -15,55 +15,47 @@ import scala.swing.MainFrame
 import scala.swing.SimpleSwingApplication
 import scala.swing.TextField
 
-import Async.async
 import Async.await
+import Async.async
 import akka.dispatch.ExecutionContext
 import akka.dispatch.ExecutionContexts
 import akka.dispatch.Future
 import javax.swing.SwingUtilities
 
-/** Simple Swing example showing how comfortable asynchronous programming can be. */
-object SwingExample extends SimpleSwingApplication {
+/** Painless asynchronous programming with Swing. */
+object ReadmeExample extends SimpleSwingApplication {
   
-  /** Swing execution context */
-  implicit val swingCtx = new ExecutionContext {
-    def execute(runnable: Runnable): Unit = SwingUtilities.invokeLater(runnable)
-    def reportFailure(t: Throwable): Unit = sys.error(t.getMessage())
-  }
-  
-  val seqDlButton = new Button("Seq Download")
-  val parDlButton = new Button("Par Download")
+  val dlButton = new Button("Download")
   val charCount = new TextField { text = "0"; columns = 5 }
   
   def top = new MainFrame {
     title = "Scala-Async Test"
-    contents = new FlowPanel(seqDlButton, parDlButton, new Label("# Chars"), charCount)
+    contents = new FlowPanel(dlButton, new Label("# Chars"), charCount)
   }
 
-  listenTo(seqDlButton, parDlButton)
+  listenTo(dlButton)
   reactions += {
-    case ButtonClicked(`seqDlButton`) => 
+    case ButtonClicked(`dlButton`) => 
       charCount.text = ""
       async {
+        // No blocking is involved here!
         val akka = await { downloadAsync("http://www.akka.io/") }
         val scala = await { downloadAsync("http://www.scala-lang.org/") }
+        // Access swing components directly
         charCount.text = (akka.length + scala.length).toString
       }
-     case ButtonClicked(`parDlButton`) => 
-       charCount.text = ""
-       val akkaFuture = downloadAsync("http://www.akka.io/")
-       val scalaFuture = downloadAsync("http://www.scala-lang.org/")
-       async {
-         val akka = await { akkaFuture }
-         val scala = await { scalaFuture }
-         charCount.text = (akka.length + scala.length).toString
-      }  
   }
   
   /** Downloads the content of the given url asynchronously. */
   def downloadAsync(url: String): Future[String] = Future { 
     Source.fromURL(new URL(url))(Codec.ISO8859).getLines.mkString
   } (threadPool)
+  
+  /** Swing execution context */
+  implicit val swingCtx = new ExecutionContext {
+    def execute(runnable: Runnable): Unit = SwingUtilities.invokeLater(runnable)
+    def reportFailure(t: Throwable): Unit = sys.error(t.getMessage())
+  }
   
   /** Worker thread pool */
   val threadPool = ExecutionContexts.fromExecutor(Executors.newFixedThreadPool(2, 

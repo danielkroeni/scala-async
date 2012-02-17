@@ -1,1 +1,0 @@
-scala-async is an attempt to implement something akin to C#'s async based on scala's delimited continuations and akka's Futures.
