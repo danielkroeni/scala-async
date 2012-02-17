@@ -15,11 +15,10 @@ object Async {
   implicit def toRunnable[T](f: => T): Runnable = new Runnable { def run = f }
   /** Default ExecutionContext. */
   val defaultContext = new ExecutionContext {
-    val pool = new ForkJoinPool
+    val pool = new ForkJoinPool // Might need some configuration
     def execute(r: Runnable) { pool.execute(r) }
     def reportFailure(t: Throwable) { sys.error(t.toString()) }
   }
-  
   
   def async[A](body: => A @suspendable)(implicit ec: ExecutionContext = defaultContext): Future[A] = {
     assert(ec != null, "ec must not be null!")
@@ -47,11 +46,8 @@ object Async {
           ec.execute(cont(null.asInstanceOf[A])) //TODO solve appropriately
       }
     }
-    // throw exception
+    // rethrow exception if any
     if(ex.get() != null) throw ex.get()
     a
   }
-  
-  
-    def m(msg: String) = println(Thread.currentThread().getName() + " '" + msg + "'")
 }
