@@ -6,6 +6,7 @@ import akka.dispatch.Future
 import akka.dispatch.Promise
 import akka.dispatch.ExecutionContexts
 import scala.concurrent.forkjoin.ForkJoinPool
+import java.util.concurrent.atomic.AtomicReference
 
 object Async {
   /** Holds the ExecutionContext captured by async for use in await. */
@@ -21,30 +22,36 @@ object Async {
   
   
   def async[A](body: => A @suspendable)(implicit ec: ExecutionContext = defaultContext): Future[A] = {
+    assert(ec != null, "ec must not be null!")
     val p = Promise[A]()(ec)
     val runnable = toRunnable { 
       localContext.set(ec)
-      reset { 
+      reset[Unit,Unit] { 
         try { p.success(body); () }
-        catch { case e: Throwable => { p.failure(e); () } }
+        catch { case e => { p.failure(e); () } 
+        }
       }  
     }
-    run(runnable, ec)
+    ec.execute(runnable)
     p.future
   }
   
   def await[A](block: => Future[A]): A@suspendable = {
     val ec = localContext get()
-    shift { cont: (A => Unit) =>
+    val ex = new AtomicReference[Throwable] // holds the exception if any
+    val a = shift[A,Unit,Unit] { cont: (A => Unit) =>
       block onComplete { 
-        case Left(e) => throw e
-        case Right(r) => run(cont(r),ec)
+        case Right(r) => ec.execute(cont(r))
+        case Left(e) => 
+          ex.set(e) // store exception
+          ec.execute(cont(null.asInstanceOf[A])) //TODO solve appropriately
       }
     }
+    // throw exception
+    if(ex.get() != null) throw ex.get()
+    a
   }
   
-  private def run(r: Runnable, ec: ExecutionContext) {
-    if (ec != null) ec.execute(r)
-    else r.run()
-  }
+  
+    def m(msg: String) = println(Thread.currentThread().getName() + " '" + msg + "'")
 }

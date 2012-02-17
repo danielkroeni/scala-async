@@ -39,7 +39,12 @@ object Example {
       m("3")
       akka.length + scala.length 
     }
-    totalLength onSuccess { case r => m("result: " + r) }
+    
+    totalLength onComplete{ 
+      case Right(r) => m("result: " + r) 
+      case Left(l) => m("ex: " + l)  
+    }
+    
     m("4")
     Await.ready(totalLength, 5 seconds)
   }
