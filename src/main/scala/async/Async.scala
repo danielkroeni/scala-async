@@ -37,17 +37,9 @@ object Async {
   
   def await[A](block: => Future[A]): A@suspendable = {
     val ec = localContext get()
-    val ex = new AtomicReference[Throwable] // holds the exception if any
-    val a = shift[A,Unit,Unit] { cont: (A => Unit) =>
-      block onComplete { 
-        case Right(r) => ec.execute(cont(r))
-        case Left(e) => 
-          ex.set(e) // store exception
-          ec.execute(cont(null.asInstanceOf[A])) //TODO solve appropriately
-      }
+    val a = shift[Either[Throwable,A],Unit,Unit] { cont: (Either[Throwable,A] => Unit) =>
+      block onComplete { r => ec.execute(cont(r)) }
     }
-    // rethrow exception if any
-    if(ex.get() != null) throw ex.get()
-    a
+    a.fold(throw _, x => x)
   }
 }
